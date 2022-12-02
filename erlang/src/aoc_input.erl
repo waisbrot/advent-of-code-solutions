@@ -2,6 +2,7 @@
 -export([
     simple_read/2
     ,split_by_blanks/2
+    ,split_by_lines/2
 ]).
 
 % Read a file
@@ -19,3 +20,7 @@ simple_read(Name, Example) ->
 split_by_blanks(Name, Example) ->
     RawData = simple_read(Name, Example),
     binary:split(RawData, <<"\n\n">>, [global]).
+
+split_by_lines(Name, Example) ->
+    RawData = simple_read(Name, Example),
+    binary:split(RawData, <<"\n">>, [global]).
