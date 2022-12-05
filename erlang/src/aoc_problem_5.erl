@@ -41,7 +41,7 @@ parse_commands(Binary) ->
     lists:map(fun parse_command_line/1, Lines).
 
 parse_command_line(Line) ->
-    io:format("Line=~p~n", [Line]),
+    %io:format("Line=~p~n", [Line]),
     {match, [Count, From, To]} = re:run(Line, <<"move (\\d+) from (\\d+) to (\\d+)">>, [anchored, {capture, all_but_first, binary}]),
     {move, binary_to_integer(Count), binary_to_integer(From), binary_to_integer(To)}.
 
@@ -52,7 +52,7 @@ execute_command({move, N, From, To}, Stacks) ->
     execute_command({move, N-1, From, To}, Stacks1).
 
 move_one(From, To, Stacks) ->
-    io:format("Move from ~p to ~p~n", [From, To]),
+    %io:format("Move from ~p to ~p~n", [From, To]),
     #{From := [Head|FromRest], To := ToStack} = Stacks,
     Stacks#{From => FromRest, To => [Head|ToStack]}.
 

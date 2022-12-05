@@ -9,7 +9,8 @@
 
 %% escript Entry point
 main(Args) ->
-    solver(Args),
+    {Time, _} = timer:tc(fun solver/1, Args),
+    io:format("Took ~p microseconds~n", [Time]),
     erlang:halt(0).
 
 solver([Problem]) ->
