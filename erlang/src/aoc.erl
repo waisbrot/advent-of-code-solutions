@@ -9,8 +9,7 @@
 
 %% escript Entry point
 main(Args) ->
-    {Time, _} = timer:tc(fun solver/1, [Args]),
-    io:format("Took ~p microseconds~n", [Time]),
+    solver(Args),
     erlang:halt(0).
 
 solver([Problem]) ->
@@ -20,7 +19,8 @@ solver([Problem, "e"]) ->
 
 solver(Problem, Example) ->
     Module = list_to_atom(lists:flatten(["aoc_problem_", Problem])),
-    Module:solve(Problem, Example).
+    {Time, _} = timer:tc(Module, solve, [Problem, Example]),
+    io:format("Total solver time: ~p microseconds~n", [Time]).
     
 %%====================================================================
 %% Internal functions
