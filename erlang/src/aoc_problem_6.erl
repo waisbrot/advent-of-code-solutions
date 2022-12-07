@@ -3,11 +3,11 @@
 
 solve(Problem, Example) ->
     {TimeInput, Binary} = timer:tc(fun aoc_input:simple_read/2, [Problem, Example]),
-    io:format("Read input: ~p microseconds~n", [TimeInput]),
+    io:format("Read input: ~p seconds~n", [TimeInput * 10.0e-7]),
     {TimeFirst, Position} = timer:tc(fun first_unique_n/2, [4, Binary]),
-    io:format("Problem 1: ~p in ~p microseconds~n", [Position, TimeFirst]),
+    io:format("Problem 1: ~p in ~p seconds~n", [Position, TimeFirst * 10.0e-7]),
     {TimeMessage, Position2} = timer:tc(fun first_unique_n/2, [14, Binary]),
-    io:format("Problem 2: ~p in ~p microseconds~n", [Position2, TimeMessage]).
+    io:format("Problem 2: ~p in ~p seconds~n", [Position2, TimeMessage * 10.0e-7]).
 
 first_unique_n(N, <<Head:1/bytes, Binary/binary>>) ->
     search(N, 0, #{}, queue:new(), Head, Binary).
