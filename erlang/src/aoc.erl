@@ -13,9 +13,11 @@ main(Args) ->
     erlang:halt(0).
 
 solver([Problem]) ->
-    solver(Problem, false);
+    solver(Problem, full);
 solver([Problem, "e"]) ->
-    solver(Problem, true).
+    solver(Problem, e);
+solver([Problem, "eb"]) ->
+    solver(Problem, eb).
 
 solver(Problem, Example) ->
     Module = list_to_atom(lists:flatten(["aoc_problem_", Problem])),

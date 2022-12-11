@@ -6,13 +6,14 @@
 ]).
 
 % Read a file
--spec simple_read(string, bool) -> binary.
+-spec simple_read(string, atom) -> binary.
 simple_read(Name, Example) ->
-    Dir = case Example of 
-        true -> "examples";
-        false -> "inputs"
+    {Dir, Name2} = case Example of 
+        full -> {"inputs", Name};
+        e -> {"examples", Name};
+        eb -> {"examples", Name ++ "b"}
     end,
-    File = ["../", Dir, "/", Name],
+    File = ["../", Dir, "/", Name2],
     %io:format("Read from ~p~n", [File]),
     {ok, Data} = file:read_file(File),
     Data.
