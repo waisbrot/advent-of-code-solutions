@@ -12,12 +12,12 @@ solve(Problem, Example) ->
 
 ingest(Problem, Example) ->
     Lines = aoc_input:split_by_lines(Problem, Example),
-    ingest_rows(0, Lines, #{}).
+    ingest_rows(1, Lines, #{}).
 
 ingest_rows(_Row, [], Terrain) ->
     Terrain;
 ingest_rows(Row, [Line|Lines], Terrain) ->
-    Terrain2 = ingest_row(Row, 0, binary_to_list(Line), Terrain),
+    Terrain2 = ingest_row(Row, 1, binary_to_list(Line), Terrain),
     ingest_rows(Row+1, Lines, Terrain2).
 
 ingest_row(_Row, _Col, [], Terrain) ->
@@ -31,55 +31,99 @@ ingest_row(Row, Col, [H|Rest], Terrain) ->
     ingest_row(Row, Col+1, Rest, Terrain2).
 
 solve_1(#{start := Start, finish := Finish} = Terrain) ->
-    ets:new(open_set, [ordered_set, private, named_table]),
-    ets:new(solutions, [ordered_set, private, named_table]),
-    {Initial} = with_heuristic(Start, sets:new(), Finish),
-    a_star(Initial, Terrain).
+    OpenSet = [with_heuristic(Start, 0, Finish)],
+    ClosedSet = [],
+    BestSolution = maps:size(Terrain),
+    Visited = #{},
+    a_star(OpenSet, ClosedSet, Visited, BestSolution, Terrain).
 
-solve_2(_) ->
-    ok.
+solve_2(#{start := OriginalStart, finish := Finish} = Terrain0) ->
+    Terrain = maps:without([start,finish], Terrain0),
+    OtherStarts = lists:map(fun ({Pos,_}) -> Pos end, lists:filter(fun ({_, H}) -> H =:= $a end, maps:to_list(Terrain))),
+    lists:foldl(fun (Start, Best) ->
+        MaybeBetter = a_star([with_heuristic(Start, 0, Finish)], [], #{}, Best, Terrain),
+        io:format("From ~p: ~p (best so far is ~p)~n", [Start, MaybeBetter, Best]),
+        min(Best, MaybeBetter)
+    end, maps:size(Terrain), [OriginalStart|OtherStarts]).
 
 manattan_distance({R1, C1}, {R2, C2}) ->
     abs(R1 - R2) + abs(C1 - C2).
 
-with_heuristic(Pos, Visited, Dest) ->
+with_heuristic(Pos, Steps, Dest) ->
     Hope = manattan_distance(Pos, Dest),
-    Regret = sets:size(Visited),
-    {{Hope + Regret, Pos, Visited, Dest}}.
+    Regret = Steps,
+    {Hope + Regret, Pos, Steps, Dest}.
 
-a_star('$end_of_table', _) ->
-    ?LOG_DEBUG("Open set empty"),
-    io:format("Open set=~p~n", [ets:tab2list(open_set)]),
-    ets:last(solutions);
-a_star(Top, Terrain) ->
-    ?LOG_DEBUG(fun print_partial/1, ["Evaluating partial solution: ", Top]),
-    ets:delete_object(open_set, {Top}),
-    Children = generate_children(Top, Terrain),
+a_star([], _ClosedSet, _Visited, BestSolution, _Terrain) ->
+    % io:format("OpenSet=~p ClosedSet=~p Best=~p~n", [length([]), length(ClosedSet), BestSolution]),
+    % io:format("Open set empty. Closed set: ~p~n", [ClosedSet]),
+    % draw_visited(Visited),
+    BestSolution;
+a_star([Top|OpenSet], ClosedSet, Visited, BestSolution, Terrain) ->
+    {Visited2, Children} = generate_children(Top, Visited, BestSolution, Terrain),
+    % io:format("Visited2=~p Children=~p~n", [maps:size(Visited2), Children]),
     {Solutions, InProgress} = lists:partition(fun is_solution/1, Children),
-    ?LOG_DEBUG("Solutions=~p InProgress=~p Already in progress=~p", [length(Solutions), length(InProgress), length(ets:tab2list(open_set))]),
-    lists:foreach(fun (S) -> ets:insert(solutions, S) end, Solutions),
-    lists:foreach(fun (P) -> ets:insert(open_set, P) end, InProgress),
-    Next = ets:first(open_set),
-    a_star(Next, Terrain).
-
-print_partial([Message, {Heuristic, Pos, Visited, _}]) ->
-    io_lib:format("~s ~p", [Message, {Heuristic, Pos, sets:size(Visited)}]).
+    BestSolution2 = update_best_solution(Solutions, BestSolution),
+    ClosedSet2 = ClosedSet ++ Solutions,
+    OpenSet2 = sort_and_simplify(OpenSet ++ InProgress),
+    % Top2 = case OpenSet2 of [H|_] -> H; _ -> none end,
+    % case map_size(Visited) rem 100 of
+    %     0 -> draw_visited(Visited);
+    %     _ -> ok
+    % end,
+    % io:format("Top=~p(~c) -> ~p(~c) OpenSet=~p -> ~p ClosedSet=~p -> ~p Visited=~p -> ~p Best=~p -> ~p~n", 
+    %     [Top, get_terrain(Top, Terrain), Top2, get_terrain(Top2, Terrain), length(OpenSet), length(OpenSet2)-1, length(ClosedSet), length(ClosedSet2),
+    %         maps:size(Visited), maps:size(Visited2), BestSolution, BestSolution2]),
+    a_star(OpenSet2, ClosedSet2, Visited2, BestSolution2, Terrain).
 
 is_solution({_, Finish, _, Finish}) -> true;
 is_solution(_) -> false.
 
-generate_children({_, Pos, Visited, Dest}, Terrain) ->
-    Neighbors = all_neighbors(Pos, Visited, Terrain),
-    Visited2 = sets:add_element(Pos, Visited),
-    lists:map(fun (N) -> with_heuristic(N, Visited2, Dest) end, Neighbors).
+draw_visited(V) when map_size(V) =:= 0 -> ok;
+draw_visited(Visited) ->
+    VList = lists:sort(maps:to_list(Visited)),
+    % io:format("VList=~p~n", [VList]),
+    draw_visited({1,1}, VList).
+draw_visited(_, []) ->
+    io:format("~n");
+draw_visited({R1, C1}, [{{R2, C2},_}|Rest] = Visited) ->
+    if
+        R1 < R2 -> 
+            io:format("|~n"),
+            draw_visited({R1+1, 1}, Visited);
+        C1 < C2 ->
+            io:format("."),
+            draw_visited({R1,C1+1}, Visited);
+        C1 =:= C2 ->
+            io:format("#"),
+            draw_visited({R2, C2+1}, Rest)
+    end.
 
-all_neighbors({R, C} = From, Visited, Terrain) ->
+get_terrain(none, _) -> $ ;
+get_terrain({_, Pos, _, _}, Terrain) -> maps:get(Pos, Terrain).
+
+sort_and_simplify(List) ->
+    lists:uniq(fun ({Score, Pos, _, _}) -> {Score, Pos} end, lists:sort(List)).
+
+generate_children({_, Pos, Steps, Dest}, Visited, BestSolution, Terrain) ->
+    Neighbors = all_neighbors(Pos, Terrain),
+    ScoredNeighbors = lists:map(fun (N) -> with_heuristic(N, Steps+1, Dest) end, Neighbors),
+    BetterScore = lists:filter(fun ({NScore, NPos, _, _}) -> 
+        BestForPos = maps:get(NPos, Visited, BestSolution),
+        NScore < BestForPos
+    end, ScoredNeighbors),
+    Visited2 = lists:foldl(fun ({NScore, NPos, _, _}, Vis) -> Vis#{NPos => NScore} end, Visited, BetterScore),
+    {Visited2, BetterScore}.
+
+update_best_solution(Solutions, BestSolution) ->
+    lists:min([BestSolution | lists:map(fun ({Score, _, _, _}) -> Score end, Solutions)]).
+
+all_neighbors({R, C} = From, Terrain) ->
     Possible = [{R+1, C}, {R-1, C}, {R, C+1}, {R, C-1}],
-    NotVisited = lists:filter(fun (Pos) -> not sets:is_element(Pos, Visited) end, Possible),
-    OnMap = lists:filter(fun (Pos) -> maps:is_key(Pos, Terrain) end, NotVisited),
+    OnMap = lists:filter(fun (Pos) -> maps:is_key(Pos, Terrain) end, Possible),
     lists:filter(fun (Pos) -> can_climb(From, Pos, Terrain) end, OnMap).
 
 can_climb(From, To, Terrain) ->
     FromH = maps:get(From, Terrain),
     ToH = maps:get(To, Terrain),
-    abs(FromH - ToH) =< 1.
+    (ToH - FromH) =< 1.
