@@ -30,8 +30,8 @@ solve_1(Sensors, TargetY) ->
     Beacons = lists:map(fun (#{beacon := B}) -> B end, Sensors),
     Beacons2 = lists:filter(fun ({_,Y}) -> Y =:= TargetY end, Beacons),
     Beacons3 = sets:from_list(lists:map(fun ({X,_}) -> X end, Beacons2)),
-    io:format("All X in range: ~p~n", [TargetRow]),
-    io:format("Less beacons ~p~n", [Beacons3]),
+    % io:format("All X in range: ~p~n", [TargetRow]),
+    % io:format("Less beacons ~p~n", [Beacons3]),
     points_in_segments(TargetRow) - sets:size(Beacons3).
 
 add_range(#{sensor := Sen, beacon := Bea} = P) ->
@@ -51,7 +51,7 @@ all_x_in_range(#{sensor := {X,Y}, range := R}, Ty) ->
 
 join_segment(Segments, New) ->
     Res = lists:sort(lists:flatten(join_segment(Segments, New, []))),
-    io:format("Seg=~p New=~p -> ~p~n", [Segments, New, Res]),
+    % io:format("Seg=~p New=~p -> ~p~n", [Segments, New, Res]),
     Res.
 
 join_segment([], New, Joint) ->
@@ -63,23 +63,22 @@ join_segment([{_,H0}=S|R], {L,_}=New, Joint) when L > H0 ->
 join_segment([{L0,H0}|R], {L,H}, Joint) ->
     join_segment(R, {min(L0,L), max(H0,H)}, Joint).
 
-join_segments(S1, S2) ->
-    join_segments(S1, S2, []).
-
-join_segments([], [], J) -> lists:reverse(J);
-join_segments(S1, [], J) -> lists:append(lists:reverse(J), S1);
-join_segments([], S2, J) -> lists:append(lists:reverse(J), S2);
-join_segments([{L1,H1}|R1], [{L2,H2}|R2], J) when (L2 >= L1 andalso L2 =< H1); (L1 >= L2 andalso L1 =< H2); (H1 >= L2 andalso H1 =< H2); (H2 >= L1 andalso H2 =< H1) -> 
-    % overlap
-    Combined = {min(L1,L2), max(H1,H2)},
-    join_segments(R1,[Combined|R2], J);
-join_segments([{L1,_H1}=S1|R1], [{L2,_H2}|_]=S2, J) when L1 < L2 ->
-    join_segments(R1, S2, [S1|J]);
-join_segments([{L1,_H1}=S1|_], [{L2,_H2}=S2|R2], J) when L2 < L1 ->
-    join_segments(S1, R2, [S2|J]).
-
 points_in_segments(Segments) ->
     lists:foldl(fun ({L, H}, S) -> S + (H - L) + 1 end, 0, Segments).
 
 solve_2(Sensors) ->
-    length(Sensors).
+    Sensors2 = lists:map(fun add_range/1, Sensors),
+    WithNeighbors = lists:map(fun (#{sensor := S1, range := R1}=Sensor) ->
+        Nearby = lists:filter(fun (#{sensor := S2, range := R2}) ->
+            SensorDistance = manattan_distance(S1, S2),
+            SensorDistance =:= (R1 + R2 + 1)
+        end, Sensors2),
+        Sensor#{nearby => Nearby}
+    end, Sensors2).
+    % lists:filter(fun (Pos) ->
+    %     lists:any(fun (Sensor) -> in_sensor_range(Pos, Sensor) end, Sensors2)
+    % end, [{0,0},{0,4_000_000},{4_000_000,0},{4_000_000,4_000_000}]).
+
+in_sensor_range(Pos, #{sensor := Sensor, range := Range}) ->
+    Dist = manattan_distance(Pos, Sensor),
+    Range >= Dist.
