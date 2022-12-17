@@ -25,7 +25,7 @@ ingest(Problem, Example) ->
     end, Monkeys).
 
 solve_1(MonkeyDefs) ->
-    MonkeyDefs2 = lists:map(fun (MonkeyDef) -> MonkeyDef#{worry_decay => 3} end, MonkeyDefs),
+    MonkeyDefs2 = lists:map(fun (MonkeyDef) -> MonkeyDef#{worry_decay => 3, lcd => 1} end, MonkeyDefs),
     Monkeys = lists:map(fun spawn_monkey/1, MonkeyDefs2),
     MonkeyCounter = maps:from_keys(Monkeys, 0),
     Result = coordinate_turns(Monkeys, MonkeyCounter, 20),
@@ -33,12 +33,16 @@ solve_1(MonkeyDefs) ->
     Result.
 
 solve_2(MonkeyDefs) ->
+    CommonDenom = lists:foldl(fun (#{test := {Denom, _, _}}, LCD) -> Denom * LCD end, 1, MonkeyDefs),
     MonkeyDefs2 = lists:map(fun (MonkeyDef) ->
-        MonkeyDef#{worry_decay => 1}
+        MonkeyDef#{worry_decay => 1, lcd => CommonDenom}
     end, MonkeyDefs),
+    io:format("LCD=~p~n", [CommonDenom]),
     Monkeys = lists:map(fun spawn_monkey/1, MonkeyDefs2),
     MonkeyCounter = maps:from_keys(Monkeys, 0),
-    coordinate_turns(Monkeys, MonkeyCounter, 10_000).
+    Result = coordinate_turns(Monkeys, MonkeyCounter, 10_000),
+    lists:foreach(fun (Monkey) -> Monkey ! terminate end, Monkeys),
+    Result.
 
 spawn_monkey(#{id := Id} = MonkeyDef) -> 
     Pid = spawn(?MODULE, monkey_actor, [MonkeyDef, self()]),
@@ -48,26 +52,27 @@ spawn_monkey(#{id := Id} = MonkeyDef) ->
 monkey_actor(#{inventory := Inv, id := Id} = Def, Parent) ->
     receive
         {take_turn, DebugTurn} ->
-            ?LOG_DEBUG("Monkey ~p: take a turn~n", [Id], #{debug => DebugTurn}),
+            % ?LOG_DEBUG("Monkey ~p: take a turn~n", [Id], #{debug => DebugTurn}),
             Def2 = monkey_turn(Def, DebugTurn),
             Parent ! {turn_finished, Id, queue:len(Inv)},
             monkey_actor(Def2, Parent);
         {item, Item, DebugTurn} ->
-            ?LOG_DEBUG("Monkey ~p: get item ~p~n", [Id, Item], #{debug => DebugTurn}),
+            % ?LOG_DEBUG("Monkey ~p: get item ~p~n", [Id, Item], #{debug => DebugTurn}),
             Def2 = monkey_receive(Item, Def),
             monkey_actor(Def2, Parent);
         terminate ->
             ok
     end.
 
-monkey_turn(#{inventory := Inventory, operation := Op, worry_decay := Decay, test := Test} = Def, DebugTurn) ->
+monkey_turn(#{inventory := Inventory, operation := Op, worry_decay := Decay, ldc := LDC, test := Test} = Def, DebugTurn) ->
     case queue:out(Inventory) of
         {empty, _} -> 
             Def;
         {{value, Item}, Inventory2} ->
             Item2 = monkey_inspect(Item, Op),
             Item3 = Item2 div Decay,
-            monkey_test(Item3, Test, DebugTurn),
+            Item4 = Item3 rem LDC,
+            monkey_test(Item4, Test, DebugTurn),
             monkey_turn(Def#{inventory => Inventory2}, DebugTurn)
     end.
 
@@ -87,11 +92,12 @@ monkey_receive(Item, #{inventory := Inventory} = Def) ->
 
 coordinate_turns(_Monkeys, MonkeyCounter, 0) ->
     [M1, M2 | _] = lists:reverse(lists:sort(maps:values(MonkeyCounter))),
+    io:format("Top monkeys: ~p * ~p = ~p~n", [M1, M2, M1*M2]),
     M1 * M2;
 coordinate_turns(Monkeys, MonkeyCounter, Turns) ->
     DebugTurn = case Turns rem 100 of 
         0 ->
-            ?LOG_DEBUG("Turns left: ~p~n", [Turns], #{debug => true}),
+            ?LOG_DEBUG("Turns left: ~p~n", [Turns], #{debug => false}),
             true;
         _ -> false
     end,
@@ -105,6 +111,7 @@ coordinate_turn([Monkey|Monkeys], MonkeyCounter, DebugTurn) ->
     MonkeyCounter2 = receive 
         {turn_finished, Monkey, Inspections} ->
             OldCount = maps:get(Monkey, MonkeyCounter),
+            % io:format("Monkey ~p count ~p + ~p~n", [Monkey, OldCount, Inspections]),
             MonkeyCounter#{Monkey => OldCount + Inspections}
     end,
     coordinate_turn(Monkeys, MonkeyCounter2, DebugTurn).
