@@ -29,20 +29,27 @@ adjacent_3d_helper(Pos, N) ->
 
 solve_2(Positions) ->
     Set = sets:from_list(Positions),
-    lists:foldl(fun (Pos, Count) -> Count + count_exposed2_faces(Pos, Set) end, 0, Positions).
+    Bounds = find_bounds(Positions),
+    lists:foldl(fun (Pos, Count) -> Count + count_exposed2_faces(Pos, Set, Bounds) end, 0, Positions).
 
-count_exposed2_faces(Pos, Set) ->
+count_exposed2_faces(Pos, Set, Bounds) ->
     Check = adjacent_3d(Pos),
     % io:format("For ~p check ~p~n", [Pos, Check]),
     Exposed = lists:filter(fun (P) ->
-        case not sets:is_element(P, Set) of 
+        IsSealedFace = sets:is_element(P, Set),
+        if
+            IsSealedFace ->
+                false;
             true ->
-                %% Doesn't work: needs to handle bubbles larger than 1x1x1
-                AirFaces = count_exposed_faces(P, Set),
-                % io:format("~p is clear and has ~p faces~n", [P, AirFaces]),
-                AirFaces > 0;
-            false ->
-                false
+                not can_escape(Pos, Set, Bounds)
         end
     end, Check),
     length(Exposed).
+
+find_bounds(Positions) ->
+    % lists:foldl(fun ({{X,Y,Z}, Key}, Bounds) ->
+        % maps:get(Key, Bounds, {X)
+        not_working.
+
+can_escape(_, _, _) ->
+    not_working.
