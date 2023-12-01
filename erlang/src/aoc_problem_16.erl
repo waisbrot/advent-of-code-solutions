@@ -12,43 +12,42 @@ ingest(Problem, Example) ->
     maps:from_list(lists:map(fun (Line) ->
         % io:format("Line=~p~n", [Line]),
         {match, [Valve, Flow, ExitsList]} = re:run(Line, RE, [{capture, all_but_first, binary}]),
-        Exits = binary:split(ExitsList, <<", ">>, [global]),
-        {Valve, {binary_to_integer(Flow), Exits}}
+        Exits = lists:map(fun cave_to_atom/1, binary:split(ExitsList, <<", ">>, [global])),
+        {cave_to_atom(Valve), {binary_to_integer(Flow), Exits}}
     end, Lines)).
+
+cave_to_atom(B) ->
+    list_to_atom(string:to_lower(binary_to_list(B))).
 
 solve_1(Map) ->
     MaxFlow = lists:foldl(fun ({F,_}, Sum) -> Sum + F end, 0, maps:values(Map)),
     State0 = #{
-        pos => <<"AA">>, 
+        pos => aa, 
         time => 30, 
         sum => 0,
         flow => 0, 
         open => #{},
         not_open => MaxFlow,
         path => [],
-        since_last_open => #{<<"AA">> => true}
+        since_last_open => #{aa => true}
     },
     OpenSet = [score_state(State0, Map)],
     io:format("Start: ~p~n", OpenSet),
-    astar(OpenSet, 0, Map, 0).
+    astar(OpenSet, 0, #{}, Map, 0).
 
 score_state(#{pos := Pos, time := T, flow := F, sum := S, open := Opened} = State, Map) ->
-    ValveBonus = if 
-        is_map_key(Pos, Opened) -> 0;
-        true -> element(1, maps:get(Pos, Map))
-    end,
-    State#{score => (F * T) + S + ValveBonus * (T-1)}.
+    State#{score => (F * T) + S}.
 
-astar([], Best, _, _) ->
+astar([], Best, _, _, _) ->
     Best;
-astar([State|OpenSet], BestSolution, Map, Iteration) ->
+astar([State|OpenSet], BestSolution, BestProgress, Map, Iteration) ->
     Children = generate_children(State, Map),
-    if Iteration rem 1 =:= 0 -> io:format("Iteration=~p State=~p BestSolution=~p Open=~p Children=~p~n", [Iteration, State, BestSolution, length(OpenSet), Children]); true -> ok end,
+    if Iteration rem 1_000 =:= 0 -> io:format("Iteration=~w State=~w BestProgress=~w Open=~w Children=~w~n", [Iteration, State, BestProgress, length(OpenSet), Children]); true -> ok end,
     {Solutions, InProgress} = lists:partition(fun is_solution/1, Children),
     BestSolution2 = update_best_solution(Solutions, BestSolution),
     if BestSolution =:= BestSolution2 -> ok; true -> io:format("Better solution found: ~p~n", [Solutions]) end,
-    OpenSet2 = sort_and_simplify(OpenSet ++ InProgress, BestSolution),
-    astar(OpenSet2, BestSolution2, Map, Iteration+1).
+    {OpenSet2, BestProgress2} = sort_and_simplify(OpenSet ++ InProgress, BestProgress),
+    astar(OpenSet2, BestSolution2, BestProgress2, Map, Iteration+1).
 
 generate_children(#{pos := Pos, open := Open, not_open := Remaining, since_last_open := Moves}=Current, Map) ->
     Neighbors = get_neighbors(Current, Map),
@@ -62,21 +61,23 @@ update_best_solution(Solutions, BestSolution) ->
 is_solution(#{time := T}) -> 
     T =:= 0.
 
-sort_and_simplify(List, BestSolution) ->
-    NotWorse = lists:filter(fun (#{time := T, not_open := N, sum := S, path := P}=State) ->
-        if 
-            S + N*T >= BestSolution ->
-                true;
-            true ->
-                case lists:reverse(P) of
-                    [{move,<<"DD">>},{open,<<"DD">>},{move,<<"CC">>}] ->
-                        io:format("Rejected as strictly worse: ~p~n", [State]);
-                    _ -> ok
-                end,
-                false
-        end
-    end, List),
-    lists:sort(fun (#{score := S1}, #{score := S2}) -> S1 > S2 end, NotWorse).
+sort_and_simplify(List, BestProgress) ->
+    {NotWorse, BestProgress2} = filter_and_progress(List, BestProgress),
+    {lists:sort(fun (#{score := S1}, #{score := S2}) -> S1 > S2 end, NotWorse), BestProgress2}.
+
+filter_and_progress(List, Progress) ->
+    filter_and_progress(List, Progress, []).
+filter_and_progress([], Progress, Filtered) ->
+    {Filtered, Progress};
+filter_and_progress([State = #{time := T, not_open := Remaining, score := Score}|Rest], Progress, Filtered) ->
+    NumNotOpen = length(Remaining),
+    Key = {T, NumNotOpen},
+    case maps:get(Key, Progress, -1) of
+        #{score := PrevScore} when PrevScore =< Score ->
+            filter_and_progress(Rest, Progress#{Key => State}, [State|Filtered]);
+        _ ->
+            filter_and_progress(Rest, Progress, Filtered)
+    end.
 
 get_neighbors(#{pos := Pos}, Map) ->
     {_, Exits} = maps:get(Pos, Map),
