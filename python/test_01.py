@@ -2,7 +2,7 @@ import unittest
 from python.p01 import Problem1
 from os.path import abspath, dirname
 
-class TestProblem(unittest.TestCase):
+class TestProblem1(unittest.TestCase):
     def test_examples(self):
         pwd = dirname(abspath(__file__))
         for (example, result) in (('01a', 142), ('01b', 281)):
