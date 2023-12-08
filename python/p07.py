@@ -15,7 +15,7 @@ class Card:
         if value_str.isdigit():
             self.value = int(value_str)
         elif value_str == 'T': self.value = 10
-        elif value_str == 'J': self.value = 11
+        elif value_str == 'J': self.value = 1
         elif value_str == 'Q': self.value = 12
         elif value_str == 'K': self.value = 13
         elif value_str == 'A': self.value = 14
@@ -61,23 +61,42 @@ class Hand:
         count = defaultdict(int)
         for c in self.cards:
             count[c] += 1
+        j = Card('J')
+        jokers = count[Card('J')] if j in self.cards else 0
         cards = sorted(count.items(), key=lambda i: i[1], reverse=True)
         if len(cards) == 1:
             return HandType.FIVE_OF_KIND
         elif len(cards) == 2:
-            if cards[0][1] == 4:
+            if jokers > 0:
+                return HandType.FIVE_OF_KIND
+            elif cards[0][1] == 4:
                 return HandType.FOUR_OF_KIND
             else:
                 return HandType.FULL_HOUSE
         elif len(cards) == 3:
             if cards[0][1] == 3:
-                return HandType.THREE_OF_KIND
+                assert jokers != 2
+                if jokers == 3 or jokers == 1:
+                    return HandType.FOUR_OF_KIND
+                else:
+                    return HandType.THREE_OF_KIND
             elif cards[0][1] == 2:
-                return HandType.TWO_PAIR
+                if jokers == 2:
+                    return HandType.FOUR_OF_KIND
+                elif jokers == 1:
+                    return HandType.FULL_HOUSE
+                else:
+                    return HandType.TWO_PAIR
         elif len(cards) == 4:
-            return HandType.ONE_PAIR
+            if jokers == 2 or jokers == 1:
+                return HandType.THREE_OF_KIND
+            else:
+                return HandType.ONE_PAIR
         else:
-            return HandType.HIGH_CARD
+            if jokers == 1:
+                return HandType.ONE_PAIR
+            else:
+                return HandType.HIGH_CARD
         assert False, f'No hand type for {cards}'
 
     def __repr__(self) -> str:

@@ -101,6 +101,10 @@ class Problem5b(Problem5a):
         self.seed_ranges = itertools.batched(self.seeds, 2)
 
     def solve2(self) -> str:
+        ranges_in = [[r] in  self.seed_ranges
+        for translation in (self.seed_soil, self.soil_fertilizer, self.fertilizer_water, self.water_light, self.light_temperature,
+                            self.temperature_humidity, self.humidity_location):
+            for range in 
         return ''
 
 if __name__ == '__main__':
