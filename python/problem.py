@@ -1,18 +1,25 @@
 import io
-from typing import Any, Generator
+from typing import Any, Generator, TypeAlias
 from contextlib import AbstractContextManager
 from collections import UserDict
+
+Coordinate: TypeAlias = tuple[int,int]
 
 class Grid(UserDict):
     def __init__(self) -> None:
         super().__init__(self)
         self.grid = {}
     
-    def __setitem__(self, key: tuple[int,int], item: str) -> None:
+    def __setitem__(self, key: Coordinate, item: str) -> None:
         super().__setitem__(key, item)
 
-    def __getitem__(self, key: tuple[int,int]) -> str:
+    def __getitem__(self, key: Coordinate) -> str:
         return super().__getitem__(key)
+    
+def manhattan_distance(a: Coordinate, b: Coordinate) -> int:
+    ax,ay = a
+    bx,by = b
+    return abs(ax - bx) + abs(ay - by)
 
 class ProblemBase(AbstractContextManager):
     def __init__(self) -> None:
