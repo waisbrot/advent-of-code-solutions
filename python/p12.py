@@ -10,10 +10,8 @@ from itertools import pairwise, combinations, groupby
 
 logging.basicConfig(level=logging.DEBUG)
     
-class Problem11(ProblemBase):
-    galaxies: list[MCoordinate]
-    max_r: int
-    max_c: int
+class Problem12(ProblemBase):
+    solutions = 0
 
     def __init__(self) -> None:
         super().__init__()

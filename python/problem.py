@@ -4,13 +4,20 @@ from contextlib import AbstractContextManager
 from collections import UserDict
 
 Coordinate: TypeAlias = tuple[int,int]
+MCoordinate: TypeAlias = list[int,int]
 
 class Grid(UserDict):
+    maxes: Coordinate
+
     def __init__(self) -> None:
         super().__init__(self)
-        self.grid = {}
+        self.maxes = (-1,-1)
     
     def __setitem__(self, key: Coordinate, item: str) -> None:
+        if key[0] > self.maxes[0]:
+            self.maxes = (key[0], self.maxes[1])
+        if key[1] > self.maxes[1]:
+            self.maxes = (self.maxes[0], key[1])
         super().__setitem__(key, item)
 
     def __getitem__(self, key: Coordinate) -> str:
