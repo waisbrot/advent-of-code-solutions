@@ -10,8 +10,13 @@ parsed(File, Data) :-
   phrase_from_file(level_reports(Data), File).
 
 solve(day2a, Input, Answer) :-
+  solve_day_2(levels_are_safe, Input, Answer).
+solve(day2b, Input, Answer) :-
+  solve_day_2(levels_damp_safe, Input, Answer).
+  
+solve_day_2(Pred, Input, Answer) :-
   input(Input, Parsed),
-  include(levels_are_safe, Parsed, Safe),
+  include(Pred, Parsed, Safe),
   length(Safe, Answer).
 
 level_reports([]) --> [].
@@ -44,4 +49,25 @@ levels_are_safe(LG, report([A,B|Rest])) :-
   Delta >= 1,
   Delta =< 3,
   levels_are_safe(LG, report([B|Rest])).
+
+levels_damp_safe(report([_])).
+levels_damp_safe(report([A,B|Rest])) :-
+  A > B,
+  levels_damp_safe('>', report([A,B|Rest])).
+levels_damp_safe(report([A,B|Rest])) :-
+  A < B,
+  levels_damp_safe('<', report([A,B|Rest])).
+levels_damp_safe(report([A,B|Rest])) :-
+  levels_are_safe(report([A|Rest]));
+  levels_are_safe(report([B|Rest])).
+
+levels_damp_safe(_, report([_])).
+levels_damp_safe(LG, report([A,B|Rest])) :-
+  call(LG, A, B),
+  abs(A - B, Delta),
+  Delta >= 1,
+  Delta =< 3,
+  levels_damp_safe(LG, report([B|Rest])).
+levels_damp_safe(LG, report([A,_|Rest])) :-
+  levels_are_safe(LG, report([A|Rest])).
 
